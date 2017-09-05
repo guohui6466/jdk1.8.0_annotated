@@ -54,6 +54,11 @@ import sun.misc.Unsafe;
  * value manipulated using methods {@link #getState}, {@link
  * #setState} and {@link #compareAndSetState} is tracked with respect
  * to synchronization.
+ * 提供一个框架来实现阻塞锁和依赖于先进先出（FIFO）等待队列的同步器（信号量、事件等）。
+ * 这个类被设计成一个有用的基础对于大多数类型的依赖单一原子值来表示状态的同步器。
+ * 子类必须定义受保护的方法来改变这些状态，并定义根据何种状态意味着这个对象被获取和释放。
+ * 考虑到这些，这个类中的其他方法进行排队和阻塞。子类可以维护其他状态字段，但是只有使用
+ * getState, setState和compareAndSetState这些方法进行原子更新值操作时考虑同步跟踪。
  *
  * <p>Subclasses should be defined as non-public internal helper
  * classes that are used to implement the synchronization properties
@@ -63,6 +68,9 @@ import sun.misc.Unsafe;
  * {@link #acquireInterruptibly} that can be invoked as
  * appropriate by concrete locks and related synchronizers to
  * implement their public methods.
+ * 子类应该被定义成非公开的内部类，用于实现他们外部类的同步属性。AbstractQueuedSynchronizer
+ * 类不实现任何的同步接口。相反，它定义了方法如acquireInterruptibly，可以适当的调用具体的锁和
+ * 相关的同步器来实现他们的公共方法。
  *
  * <p>This class supports either or both a default <em>exclusive</em>
  * mode and a <em>shared</em> mode. When acquired in exclusive mode,
@@ -76,6 +84,8 @@ import sun.misc.Unsafe;
  * one of these modes, but both can come into play for example in a
  * {@link ReadWriteLock}. Subclasses that support only exclusive or
  * only shared modes need not define the methods supporting the unused mode.
+ * 这个类支持默认独占模式和共享模式。在独占模式下，其他线程尝试获取不能成功。共享模式多个
+ * 线程同时获取可能（但不一定）成功。
  *
  * <p>This class defines a nested {@link ConditionObject} class that
  * can be used as a {@link Condition} implementation by subclasses
@@ -379,19 +389,25 @@ public abstract class AbstractQueuedSynchronizer
      */
     static final class Node {
         /** Marker to indicate a node is waiting in shared mode */
+        /** 共享模式 */
         static final Node SHARED = new Node();
         /** Marker to indicate a node is waiting in exclusive mode */
+        /** 独占模式 */
         static final Node EXCLUSIVE = null;
 
         /** waitStatus value to indicate thread has cancelled */
+        /** 线程被取消 */
         static final int CANCELLED =  1;
         /** waitStatus value to indicate successor's thread needs unparking */
+        /** 当前节点的后继节点包含的线程需要运行，也就是unpark */
         static final int SIGNAL    = -1;
         /** waitStatus value to indicate thread is waiting on condition */
+        /** 当前节点在等待condition，也就是在condition队列中 */
         static final int CONDITION = -2;
         /**
          * waitStatus value to indicate the next acquireShared should
-         * unconditionally propagate
+         * unconditionally propagate <br>
+         * 当前场景下后续的acquireShared能够得以执行
          */
         static final int PROPAGATE = -3;
 
